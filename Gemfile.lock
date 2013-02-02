@@ -1,0 +1,10 @@
+GEM
+  remote: http://rubygems.org/
+  specs:
+    vpim (0.695)
+
+PLATFORMS
+  x86-mingw32
+
+DEPENDENCIES
+  vpim
