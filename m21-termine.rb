@@ -57,7 +57,7 @@ def parseTags(text, links)
   return nil unless text
   result = text.gsub(/<b>([^<]*)<\/b>/) { $1 }
   result = result.gsub(/<br>|<br \/>/, "\n")
-  result = result.gsub(/<link ([^ ]+)[^>]*>([^<]+)<\/link>/) do |s|
+  result = result.gsub(/<link ([^ >]+)[^>]*>([^<]+)<\/link>/) do |s|
     url = $1
     content = $2
     if /^\d+$/ === url
@@ -114,4 +114,4 @@ File.open(OUTPUT, 'w') do |file|
   file.print ical
 end
 
-puts "Output written to #{OUTPUT}."  
+puts "Output written to #{OUTPUT}."
