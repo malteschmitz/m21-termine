@@ -4,6 +4,7 @@ GEM
     vpim (0.695)
 
 PLATFORMS
+  ruby
   x86-mingw32
 
 DEPENDENCIES
