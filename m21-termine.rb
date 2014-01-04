@@ -10,7 +10,13 @@ OUTPUT = "m21-termine#{YEAR}.ics"
 SEQUENCE = 0
 
 
-cal = Vpim::Icalendar.create2
+info_field = [
+  Vpim::DirectoryInfo::Field.create('X-WR-CALNAME', "M21-Termine #{YEAR}"),
+  Vpim::DirectoryInfo::Field.create('X-WR-CALDESC', "Terminkalender für #{YEAR} des Ortsverabands Uetersen (M21) des Deutschen Amateur Radio Clubs (DARC)"),
+  Vpim::DirectoryInfo::Field.create('METHOD', 'PUBLISH')
+]
+
+cal = Vpim::Icalendar.create(info_field)
 
 def createDateTime(year, month, day, hour = nil, minute = 0)
   if year and month and day
