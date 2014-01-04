@@ -103,7 +103,11 @@ CSV.foreach(INPUT, :col_sep => ';', :row_sep => :auto, :encoding => 'utf-8') do 
   if start and title then
     cal.add_event do |e|
       e.dtstart start
-      e.dtend ende if ende
+      if ende
+        e.dtend ende
+      elsif start.respond_to? :hour
+        e.dtend start + 2 * 60 * 60
+      end
       e.summary title
       e.url url unless url.nil?
       e.description desc
