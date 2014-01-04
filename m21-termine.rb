@@ -4,7 +4,7 @@ require 'csv'
 require 'bundler/setup'
 require 'vpim'
 
-YEAR = 2013
+YEAR = 2014
 INPUT = "m21-termine#{YEAR}.csv"
 OUTPUT = "m21-termine#{YEAR}.ics"
 SEQUENCE = 0
