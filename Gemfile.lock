@@ -1,11 +1,10 @@
 GEM
   remote: http://rubygems.org/
   specs:
-    vpim (0.695)
+    vpim (13.11.11)
 
 PLATFORMS
   ruby
-  x86-mingw32
 
 DEPENDENCIES
   vpim
