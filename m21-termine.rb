@@ -4,19 +4,17 @@ require 'csv'
 require 'bundler/setup'
 require 'vpim'
 
-YEAR = 2015
-INPUT = "m21-termine#{YEAR}.csv"
-OUTPUT = "m21-termine#{YEAR}.ics"
+OUTPUT = "m21-termine.ics"
 SEQUENCE = 0
 
 
 info_field = [
-  Vpim::DirectoryInfo::Field.create('X-WR-CALNAME', "M21-Termine #{YEAR}"),
-  Vpim::DirectoryInfo::Field.create('X-WR-CALDESC', "Terminkalender für #{YEAR} des Ortsverabands Uetersen (M21) des Deutschen Amateur Radio Clubs (DARC)"),
+  Vpim::DirectoryInfo::Field.create('X-WR-CALNAME', "M21-Termine"),
+  Vpim::DirectoryInfo::Field.create('X-WR-CALDESC', "Terminkalender des Ortsverabands Uetersen (M21) des Deutschen Amateur Radio Clubs (DARC)"),
   Vpim::DirectoryInfo::Field.create('METHOD', 'PUBLISH')
 ]
 
-cal = Vpim::Icalendar.create(info_field)
+$cal = Vpim::Icalendar.create(info_field)
 
 def createDateTime(year, month, day, hour = nil, minute = 0)
   if year and month and day
@@ -30,7 +28,7 @@ def createDateTime(year, month, day, hour = nil, minute = 0)
   end
 end
 
-def parseDateTime(date, time)
+def parseDateTime(date, time, year)
   month = nil
   day1 = nil
   day2 = nil
@@ -54,7 +52,7 @@ def parseDateTime(date, time)
     end
   end
   if month and day1
-    return [createDateTime(YEAR, month, day1, hour, minute), createDateTime(YEAR, month, day2)]
+    return [createDateTime(year, month, day1, hour, minute), createDateTime(year, month, day2)]
   end
   return nil
 end
@@ -76,51 +74,56 @@ def parseTags(text, links)
   return result
 end
 
-puts "Reading #{INPUT}..."
+def readFile(filename, year)
+  puts "Reading #{filename}..."
 
+  CSV.foreach(filename, :col_sep => ';', :row_sep => :auto, :encoding => 'utf-8') do |row|
+    start, ende = parseDateTime(row[0], row[1], year)
+    links = []
+    desc = parseTags(row[3], links)
+    title = desc.split("\n").first
 
-CSV.foreach(INPUT, :col_sep => ';', :row_sep => :auto, :encoding => 'utf-8') do |row|
-  start, ende = parseDateTime(row[0], row[1])
-  links = []
-  desc = parseTags(row[3], links)
-  title = desc.split("\n").first
+    ov = parseTags(row[2], links)
+    title += " (#{ov})" if ov
 
-  ov = parseTags(row[2], links)
-  title += " (#{ov})" if ov
+    links.uniq!
 
-  links.uniq!
+    unless links.empty?
+      url = links.first
+      links = "weitere Informationen:\n" + links.collect { |t| "  - #{t}" }.join("\n")
+    else
+      url = nil
+      links = nil
+    end
 
-  unless links.empty?
-    url = links.first
-    links = "weitere Informationen:\n" + links.collect { |t| "  - #{t}" }.join("\n")
-  else
-    url = nil
-    links = nil
-  end
-  
-  desc = desc + "\n\n" + links unless links.nil?
-  
-  if start and title then
-    cal.add_event do |e|
-      e.dtstart start
-      if ende
-        e.dtend ende
-      elsif start.respond_to? :hour
-        e.dtend start + 2 * 60 * 60
+    desc = desc + "\n\n" + links unless links.nil?
+
+    if start and title then
+      $cal.add_event do |e|
+        e.dtstart start
+        if ende
+          e.dtend ende
+        elsif start.respond_to? :hour
+          e.dtend start + 2 * 60 * 60
+        end
+        e.summary title
+        e.url url unless url.nil?
+        e.description desc
+        e.sequence SEQUENCE
+        now = Time.now
+        e.created now
+        e.lastmod now
       end
-      e.summary title
-      e.url url unless url.nil?
-      e.description desc
-      e.sequence SEQUENCE
-      now = Time.now
-      e.created now
-      e.lastmod now
     end
   end
 end
 
-ical = cal.encode
-File.open(OUTPUT, 'w') do |file|  
+(2009..2015).each do |year|
+  readFile("m21-termine#{year}.csv", year)
+end
+
+ical = $cal.encode
+File.open(OUTPUT, 'w') do |file|
   file.print ical
 end
 
