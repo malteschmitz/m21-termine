@@ -5,6 +5,8 @@ require 'bundler/setup'
 require 'vpim'
 
 OUTPUT = "m21-termine.ics"
+INPUT = "m21-termine%YEAR%.csv"
+YEARS = 2009..2015
 SEQUENCE = 0
 
 
@@ -28,22 +30,35 @@ def createDateTime(year, month, day, hour = nil, minute = 0)
   end
 end
 
+def parseMonth(month)
+  months = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
+  raise "Monat #{match[2]} nicht gefunden" unless months.index(month)
+  months.index(month) + 1
+end
+
 def parseDateTime(date, time, year)
-  month = nil
+  date.strip! if date
+  time.strip! if time
+
+  month1 = nil
+  month2 = nil
   day1 = nil
   day2 = nil
   hour = nil
   minute = 0
-  months = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
-  if match = /^(\d\d?)\. ([A-ZÄÖÜ][a-zäöü]+)/.match(date)
+
+  if match = /^(\d\d?)\.\s+([A-ZÄÖÜ][a-zäöü]+)\s+bis\s+(\d\d?)\.\s+([A-ZÄÖÜ][a-zäöü]+)$/.match(date)
     day1 = match[1].to_i
-    raise "Monat #{match[2]} nicht gefunden" unless months.index(match[2])
-    month = months.index(match[2]) + 1
-  elsif match = /^(\d\d?)\. bis (\d\d?)\. ([A-ZÄÖÜ][a-zäöü]+)/.match(date)
+    month1 = parseMonth(match[2])
+    day2 = match[3].to_i
+    month2 = parseMonth(match[4])
+  elsif match = /^(\d\d?)\.\s+bis\s+(\d\d?)\.\s+([A-ZÄÖÜ][a-zäöü]+)$/.match(date)
     day1 = match[1].to_i
     day2 = match[2].to_i
-    raise "Monat #{match[3]} nicht gefunden" unless months.index(match[3])
-    month = months.index(match[3]) + 1
+    month1 = parseMonth(match[3])
+  elsif match = /^(\d\d?)\.\s+([A-ZÄÖÜ][a-zäöü]+)$/.match(date)
+    day1 = match[1].to_i
+    month1 = parseMonth(match[2])
   end
   if time
     if match = /^(\d\d?):(\d\d?)/.match(time)
@@ -51,8 +66,9 @@ def parseDateTime(date, time, year)
       minute = match[2].to_i
     end
   end
-  if month and day1
-    return [createDateTime(year, month, day1, hour, minute), createDateTime(year, month, day2)]
+  if month1 and day1
+    month2 = month1 if day2 and not month2
+    return [createDateTime(year, month1, day1, hour, minute), createDateTime(year, month2, day2)]
   end
   return nil
 end
@@ -102,9 +118,15 @@ def readFile(filename, year)
       $cal.add_event do |e|
         e.dtstart start
         if ende
-          e.dtend ende
+          if ende.respond_to? :hour
+            e.dtend ende
+          else
+            e.dtend ende + 1
+          end
         elsif start.respond_to? :hour
           e.dtend start + 2 * 60 * 60
+        else
+          e.dtend start + 1
         end
         e.summary title
         e.url url unless url.nil?
@@ -118,8 +140,9 @@ def readFile(filename, year)
   end
 end
 
-(2009..2015).each do |year|
-  readFile("m21-termine#{year}.csv", year)
+YEARS.each do |year|
+  filename = INPUT.gsub('%YEAR%', year.to_s)
+  readFile(filename, year)
 end
 
 ical = $cal.encode
