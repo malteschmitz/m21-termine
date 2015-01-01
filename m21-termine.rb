@@ -7,8 +7,9 @@ require 'vpim'
 OUTPUT = "m21-termine.ics"
 INPUT = "m21-termine%YEAR%.csv"
 YEARS = 2009..2015
-SEQUENCE = 0
 
+SEQUENCE = 0
+MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
 
 info_field = [
   Vpim::DirectoryInfo::Field.create('X-WR-CALNAME', "M21-Termine"),
@@ -31,9 +32,8 @@ def createDateTime(year, month, day, hour = nil, minute = 0)
 end
 
 def parseMonth(month)
-  months = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
-  raise "Monat #{match[2]} nicht gefunden" unless months.index(month)
-  months.index(month) + 1
+  raise "Monat #{month} nicht gefunden" unless MONTHS.index(month)
+  MONTHS.index(month) + 1
 end
 
 def parseDateTime(date, time, year)
@@ -47,23 +47,29 @@ def parseDateTime(date, time, year)
   hour = nil
   minute = 0
 
-  if match = /^(\d\d?)\.\s+([A-ZÄÖÜ][a-zäöü]+)\s+bis\s+(\d\d?)\.\s+([A-ZÄÖÜ][a-zäöü]+)$/.match(date)
+  months_re = MONTHS.map{|x| Regexp.quote(x)}.join('|')
+
+  if match = /^(\d\d?)\.\s+(#{months_re})\s+bis\s+(\d\d?)\.\s+(#{months_re})$/.match(date)
     day1 = match[1].to_i
     month1 = parseMonth(match[2])
     day2 = match[3].to_i
     month2 = parseMonth(match[4])
-  elsif match = /^(\d\d?)\.\s+bis\s+(\d\d?)\.\s+([A-ZÄÖÜ][a-zäöü]+)$/.match(date)
+  elsif match = /^(\d\d?)\.\s+bis\s+(\d\d?)\.\s+(#{months_re})$/.match(date)
     day1 = match[1].to_i
     day2 = match[2].to_i
     month1 = parseMonth(match[3])
-  elsif match = /^(\d\d?)\.\s+([A-ZÄÖÜ][a-zäöü]+)$/.match(date)
+  elsif match = /^(\d\d?)\.\s+(#{months_re})$/.match(date)
     day1 = match[1].to_i
     month1 = parseMonth(match[2])
+  else
+    $stderr.puts("Warning: Unknown date '#{date}'. Line skipped.")
   end
   if time
     if match = /^(\d\d?):(\d\d?)/.match(time)
       hour = match[1].to_i
       minute = match[2].to_i
+    else
+      $stderr.puts("Warning: Unknown time '#{time}'. Used without time.")
     end
   end
   if month1 and day1
@@ -94,6 +100,9 @@ def readFile(filename, year)
   puts "Reading #{filename}..."
 
   CSV.foreach(filename, :col_sep => ';', :row_sep => :auto, :encoding => 'utf-8') do |row|
+    # skip header row
+    next if row[0] == 'Datum' and row[1] == 'Uhrzeit'
+    
     start, ende = parseDateTime(row[0], row[1], year)
     links = []
     desc = parseTags(row[3], links)
