@@ -6,7 +6,7 @@ require 'vpim'
 
 OUTPUT = "m21-termine.ics"
 INPUT = "m21-termine%YEAR%.csv"
-YEARS = 2009..2015
+YEARS = 2009..2016
 
 SEQUENCE = 0
 MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
@@ -99,7 +99,7 @@ end
 def readFile(filename, year)
   puts "Reading #{filename}..."
 
-  CSV.foreach(filename, :col_sep => ';', :row_sep => :auto, :encoding => 'utf-8') do |row|
+  CSV.foreach(filename, :encoding => 'utf-8') do |row|
     # skip header row
     next if row[0] == 'Datum' and row[1] == 'Uhrzeit'
     
