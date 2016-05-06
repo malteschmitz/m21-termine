@@ -6,6 +6,7 @@ require 'vpim'
 
 OUTPUT = "m21-termine.ics"
 INPUT = "m21-termine%YEAR%.csv"
+OUTPUT_HTML = "m21-termine%YEAR%.html"
 YEARS = 2009..2016
 
 SEQUENCE = 0
@@ -83,75 +84,99 @@ def parseTags(text, links)
   return nil unless text
   result = text.gsub(/<b>([^<]*)<\/b>/) { $1 }
   result = result.gsub(/<br>|<br \/>/, "\n")
-  result = result.gsub(/<link ([^ >]+)[^>]*>([^<]+)<\/link>/) do |s|
+  result = result.gsub(/<a href="([^ "]+)"[^>]*>([^<]+)<\/a>/) do |s|
     url = $1
     content = $2
-    if /^\d+$/ === url
-      links << "http://www.darc.de/?id=#{url}"
-    else
-      links << url
-    end
+    links << url
     content
   end
   return result
 end
 
-def readFile(filename, year)
+def readFile(filename, filename_html, year)
   puts "Reading #{filename}..."
+  puts "Writing #{filename_html}..."
 
-  CSV.foreach(filename, :encoding => 'utf-8') do |row|
-    # skip header row
-    next if row[0] == 'Datum' and row[1] == 'Uhrzeit'
-    
-    start, ende = parseDateTime(row[0], row[1], year)
-    links = []
-    desc = parseTags(row[3], links)
-    title = desc.split("\n").first
+  File.open(filename_html, 'w') do |file|
 
-    ov = parseTags(row[2], links)
-    title += " (#{ov})" if ov
+    # Write HTML Header
+    file.print("<table>\n")
+    file.print("<thead>\n")
+    file.print("  <tr>\n")
+    file.print("    <th scop=\"col\">Datum</th>\n")
+    file.print("    <th scop=\"col\">Uhrzeit</th>\n")
+    file.print("    <th scop=\"col\">OV</th>\n")
+    file.print("    <th scop=\"col\">Veranstaltung</th>\n")
+    file.print("  </tr>\n")
+    file.print("</thead>\n")
+    file.print("<tbody>\n")
 
-    links.uniq!
+    CSV.foreach(filename, encoding: 'utf-8', quote_char: "\000", col_sep: ";") do |row|
+      # skip header row
+      next if row[0] == 'Datum' and row[1] == 'Uhrzeit'
+      
+      # Write HTML Line
+      file.print("  <tr>\n")
+      (0..3).each do |column|
+        file.print("    <td>#{row[column]}</td>\n")
+      end
+      file.print("  </tr>\n")
 
-    unless links.empty?
-      url = links.first
-      links = "weitere Informationen:\n" + links.collect { |t| "  - #{t}" }.join("\n")
-    else
-      url = nil
-      links = nil
-    end
+      start, ende = parseDateTime(row[0], row[1], year)
+      links = []
+      desc = parseTags(row[3], links)
+      title = desc.split("\n").first
 
-    desc = desc + "\n\n" + links unless links.nil?
+      ov = parseTags(row[2], links)
+      title += " (#{ov})" if ov
 
-    if start and title then
-      $cal.add_event do |e|
-        e.dtstart start
-        if ende
-          if ende.respond_to? :hour
-            e.dtend ende
+      links.uniq!
+
+      unless links.empty?
+        url = links.first
+        links = "weitere Informationen:\n" + links.collect { |t| "  - #{t}" }.join("\n")
+      else
+        url = nil
+        links = nil
+      end
+
+      desc = desc + "\n\n" + links unless links.nil?
+
+      if start and title then
+        $cal.add_event do |e|
+          e.dtstart start
+          if ende
+            if ende.respond_to? :hour
+              e.dtend ende
+            else
+              e.dtend ende + 1
+            end
+          elsif start.respond_to? :hour
+            e.dtend start + 2 * 60 * 60
           else
-            e.dtend ende + 1
+            e.dtend start + 1
           end
-        elsif start.respond_to? :hour
-          e.dtend start + 2 * 60 * 60
-        else
-          e.dtend start + 1
+          e.summary title
+          e.url url unless url.nil?
+          e.description desc
+          e.sequence SEQUENCE
+          now = Time.now
+          e.created now
+          e.lastmod now
         end
-        e.summary title
-        e.url url unless url.nil?
-        e.description desc
-        e.sequence SEQUENCE
-        now = Time.now
-        e.created now
-        e.lastmod now
       end
     end
+
+    file.print("</tbody>\n")
+    file.print("</table>\n")
+
   end
 end
 
 YEARS.each do |year|
   filename = INPUT.gsub('%YEAR%', year.to_s)
-  readFile(filename, year)
+  filename_html = OUTPUT_HTML.gsub('%YEAR%', year.to_s)
+  readFile(filename, filename_html, year)
 end
 
 ical = $cal.encode
